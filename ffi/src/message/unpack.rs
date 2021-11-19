@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use didcomm::{error::ErrorKind, Message, UnpackMetadata, UnpackOptions};
 
 use crate::common::EXECUTOR;
@@ -14,15 +16,15 @@ pub trait OnUnpackResult: Sync + Send {
 
 pub fn unpack<'a>(
     msg: String,
-    did_resolver: Box<dyn FFIDIDResolver>,
-    secret_resolver: Box<dyn FFISecretsResolver>,
+    did_resolver: &Arc<dyn FFIDIDResolver>,
+    secret_resolver: &Arc<dyn FFISecretsResolver>,
     options: &'a UnpackOptions,
     cb: Box<dyn OnUnpackResult>,
 ) -> ErrorCode {
     let msg = msg.clone();
     let options = options.clone();
-    let did_resolver = FFIDIDResolverAdapter::new(did_resolver);
-    let secret_resolver = FFISecretsResolverAdapter::new(secret_resolver);
+    let did_resolver = FFIDIDResolverAdapter::new(Arc::clone(&did_resolver));
+    let secret_resolver = FFISecretsResolverAdapter::new(Arc::clone(&secret_resolver));
 
     let future =
         async move { Message::unpack(&msg, &did_resolver, &secret_resolver, &options).await };
@@ -38,41 +40,37 @@ pub fn unpack<'a>(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+    use crate::{FFIDIDResolver, FFISecretsResolver};
     use crate::message::test_helper::{create_unpack_cb, get_pack_result, get_unpack_result};
     use crate::message::unpack::unpack;
     use crate::message::{pack_encrypted, pack_plaintext, pack_signed};
     use crate::secrets::resolvers::ExampleFFISecretsResolver;
     use crate::{did::resolvers::ExampleFFIDIDResolver, message::test_helper::PackCallbackCreator};
-    use didcomm::{Message, PackEncryptedOptions, UnpackOptions};
-    use serde_json::json;
+    use didcomm::{PackEncryptedOptions, UnpackOptions};
 
-    use crate::test_vectors::{ALICE_DID, ALICE_DID_DOC, ALICE_SECRETS, BOB_DID, BOB_DID_DOC, BOB_SECRETS, simple_message};
+    use crate::test_vectors::{ALICE_DID, ALICE_DID_DOC, ALICE_SECRETS, BOB_DID, BOB_DID_DOC, ALICE_AND_BOB_SECRETS, simple_message};
 
     #[tokio::test]
     async fn test_unpack_plaintext_works() {
         let msg = simple_message();
-
-        let did_resolver = Box::new(ExampleFFIDIDResolver::new(vec![
+        let did_resolver: Arc<dyn FFIDIDResolver> = Arc::new(ExampleFFIDIDResolver::new(vec![
             ALICE_DID_DOC.clone(),
             BOB_DID_DOC.clone(),
         ]));
+        let secrets_resolver: Arc<dyn FFISecretsResolver> = Arc::new(ExampleFFISecretsResolver::new(ALICE_SECRETS.clone()));
         let pack_cb = PackCallbackCreator::new().cb;
         let pack_cb_cb_id = pack_cb.cb_id;
 
-        pack_plaintext(&msg, did_resolver, pack_cb);
+        pack_plaintext(&msg, &did_resolver, pack_cb);
         let res = get_pack_result(pack_cb_cb_id).await;
 
-        let did_resolver = Box::new(ExampleFFIDIDResolver::new(vec![
-            ALICE_DID_DOC.clone(),
-            BOB_DID_DOC.clone(),
-        ]));
-        let secrets_resolver = Box::new(ExampleFFISecretsResolver::new(ALICE_SECRETS.clone()));
         let unpack_cb = create_unpack_cb();
         let unpack_cb_cb_id = unpack_cb.cb_id;
         unpack(
             res,
-            did_resolver,
-            secrets_resolver,
+            &did_resolver,
+            &secrets_resolver,
             &UnpackOptions::default(),
             unpack_cb,
         );
@@ -85,34 +83,29 @@ mod tests {
     async fn test_unpack_signed_works() {
         let msg = simple_message();
 
-        let did_resolver = Box::new(ExampleFFIDIDResolver::new(vec![
+        let did_resolver: Arc<dyn FFIDIDResolver> = Arc::new(ExampleFFIDIDResolver::new(vec![
             ALICE_DID_DOC.clone(),
             BOB_DID_DOC.clone(),
         ]));
-        let secrets_resolver = Box::new(ExampleFFISecretsResolver::new(ALICE_SECRETS.clone()));
+        let secrets_resolver: Arc<dyn FFISecretsResolver> = Arc::new(ExampleFFISecretsResolver::new(ALICE_SECRETS.clone()));
         let test_cb = PackCallbackCreator::new().cb;
         let cb_id = test_cb.cb_id;
 
         pack_signed(
             &msg,
             String::from(ALICE_DID),
-            did_resolver,
-            secrets_resolver,
+            &did_resolver,
+            &secrets_resolver,
             test_cb,
         );
         let res = get_pack_result(cb_id).await;
 
-        let did_resolver = Box::new(ExampleFFIDIDResolver::new(vec![
-            ALICE_DID_DOC.clone(),
-            BOB_DID_DOC.clone(),
-        ]));
-        let secrets_resolver = Box::new(ExampleFFISecretsResolver::new(ALICE_SECRETS.clone()));
         let unpack_cb = create_unpack_cb();
         let unpack_cb_cb_id = unpack_cb.cb_id;
         unpack(
             res,
-            did_resolver,
-            secrets_resolver,
+            &did_resolver,
+            &secrets_resolver,
             &UnpackOptions::default(),
             unpack_cb,
         );
@@ -125,11 +118,11 @@ mod tests {
     async fn test_unpack_encrypted_works() {
         let msg = simple_message();
 
-        let did_resolver = Box::new(ExampleFFIDIDResolver::new(vec![
+        let did_resolver: Arc<dyn FFIDIDResolver> = Arc::new(ExampleFFIDIDResolver::new(vec![
             ALICE_DID_DOC.clone(),
             BOB_DID_DOC.clone(),
         ]));
-        let secrets_resolver = Box::new(ExampleFFISecretsResolver::new(ALICE_SECRETS.clone()));
+        let secrets_resolver: Arc<dyn FFISecretsResolver> = Arc::new(ExampleFFISecretsResolver::new(ALICE_AND_BOB_SECRETS.clone()));
         let test_cb = PackCallbackCreator::new().cb;
         let cb_id = test_cb.cb_id;
 
@@ -138,8 +131,8 @@ mod tests {
             String::from(BOB_DID),
             Some(String::from(ALICE_DID)),
             Some(String::from(ALICE_DID)),
-            did_resolver,
-            secrets_resolver,
+            &did_resolver,
+            &secrets_resolver,
             &PackEncryptedOptions {
                 forward: false,
                 ..PackEncryptedOptions::default()
@@ -148,17 +141,12 @@ mod tests {
         );
         let res = get_pack_result(cb_id).await;
 
-        let did_resolver = Box::new(ExampleFFIDIDResolver::new(vec![
-            ALICE_DID_DOC.clone(),
-            BOB_DID_DOC.clone(),
-        ]));
-        let secrets_resolver = Box::new(ExampleFFISecretsResolver::new(BOB_SECRETS.clone()));
         let unpack_cb = create_unpack_cb();
         let unpack_cb_cb_id = unpack_cb.cb_id;
         unpack(
             res,
-            did_resolver,
-            secrets_resolver,
+            &did_resolver,
+            &secrets_resolver,
             &UnpackOptions::default(),
             unpack_cb,
         );

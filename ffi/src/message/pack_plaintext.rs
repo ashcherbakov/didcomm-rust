@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use didcomm::error::ErrorKind;
 use didcomm::Message;
 
@@ -11,11 +13,11 @@ pub trait OnPackPlaintextResult: Sync + Send {
 
 pub fn pack_plaintext(
     msg: &Message,
-    did_resolver: Box<dyn FFIDIDResolver>,
+    did_resolver: &Arc<dyn FFIDIDResolver>,
     cb: Box<dyn OnPackPlaintextResult>,
 ) -> ErrorCode {
     let msg = msg.clone();
-    let did_resolver = FFIDIDResolverAdapter::new(did_resolver);
+    let did_resolver = FFIDIDResolverAdapter::new(Arc::clone(&did_resolver));
 
     let future = async move { msg.pack_plaintext(&did_resolver).await };
 
@@ -31,6 +33,8 @@ pub fn pack_plaintext(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+    use crate::FFIDIDResolver;
     use crate::did::resolvers::ExampleFFIDIDResolver;
     use crate::message::pack_plaintext;
     use crate::message::test_helper::{get_pack_result, PackCallbackCreator};
@@ -50,14 +54,14 @@ mod tests {
         .from(ALICE_DID.to_owned())
         .finalize();
 
-        let did_resolver = Box::new(ExampleFFIDIDResolver::new(vec![
+        let did_resolver: Arc<dyn FFIDIDResolver> = Arc::new(ExampleFFIDIDResolver::new(vec![
             ALICE_DID_DOC.clone(),
             BOB_DID_DOC.clone(),
         ]));
         let test_cb = PackCallbackCreator::new().cb;
         let cb_id = test_cb.cb_id;
 
-        pack_plaintext(&msg, did_resolver, test_cb);
+        pack_plaintext(&msg, &did_resolver, test_cb);
 
         let res = get_pack_result(cb_id).await;
         assert!(res.contains("body"));

@@ -14,11 +14,11 @@ use super::did_resolver::OnDIDResolverResult;
 use super::FFIDIDResolver;
 
 pub struct FFIDIDResolverAdapter {
-    did_resolver: Box<dyn FFIDIDResolver>,
+    did_resolver: Arc<dyn FFIDIDResolver>,
 }
 
 impl FFIDIDResolverAdapter {
-    pub fn new(did_resolver: Box<dyn FFIDIDResolver>) -> Self {
+    pub fn new(did_resolver: Arc<dyn FFIDIDResolver>) -> Self {
         FFIDIDResolverAdapter { did_resolver }
     }
 }

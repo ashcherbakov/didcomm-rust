@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use didcomm::Message;
 use didcomm::{error::ErrorKind, PackSignedMetadata};
 
@@ -13,13 +15,13 @@ pub trait OnPackSignedResult: Sync + Send {
 pub fn pack_signed(
     msg: &Message,
     sign_by: String,
-    did_resolver: Box<dyn FFIDIDResolver>,
-    secret_resolver: Box<dyn FFISecretsResolver>,
+    did_resolver: &Arc<dyn FFIDIDResolver>,
+    secret_resolver: &Arc<dyn FFISecretsResolver>,
     cb: Box<dyn OnPackSignedResult>,
 ) -> ErrorCode {
     let msg = msg.clone();
-    let did_resolver = FFIDIDResolverAdapter::new(did_resolver);
-    let secret_resolver = FFISecretsResolverAdapter::new(secret_resolver);
+    let did_resolver = FFIDIDResolverAdapter::new(Arc::clone(&did_resolver));
+    let secret_resolver = FFISecretsResolverAdapter::new(Arc::clone(&secret_resolver));
 
     let future = async move {
         msg.pack_signed(&sign_by, &did_resolver, &secret_resolver)
@@ -38,6 +40,8 @@ pub fn pack_signed(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+    use crate::{FFIDIDResolver, FFISecretsResolver};
     use crate::did::resolvers::ExampleFFIDIDResolver;
     use crate::message::pack_signed::pack_signed;
     use crate::message::test_helper::{get_pack_result, PackCallbackCreator};
@@ -58,19 +62,19 @@ mod tests {
         .from(ALICE_DID.to_owned())
         .finalize();
 
-        let did_resolver = Box::new(ExampleFFIDIDResolver::new(vec![
+        let did_resolver: Arc<dyn FFIDIDResolver> = Arc::new(ExampleFFIDIDResolver::new(vec![
             ALICE_DID_DOC.clone(),
             BOB_DID_DOC.clone(),
         ]));
-        let secrets_resolver = Box::new(ExampleFFISecretsResolver::new(ALICE_SECRETS.clone()));
+        let secrets_resolver: Arc<dyn FFISecretsResolver> = Arc::new(ExampleFFISecretsResolver::new(ALICE_SECRETS.clone()));
         let test_cb = PackCallbackCreator::new().cb;
         let cb_id = test_cb.cb_id;
 
         pack_signed(
             &msg,
             String::from(ALICE_DID),
-            did_resolver,
-            secrets_resolver,
+            &did_resolver,
+            &secrets_resolver,
             test_cb,
         );
 

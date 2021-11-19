@@ -14,11 +14,11 @@ use super::secrets_resolver::{OnFindSecretsResult, OnGetSecretResult};
 use super::FFISecretsResolver;
 
 pub struct FFISecretsResolverAdapter {
-    secrets_resolver: Box<dyn FFISecretsResolver>,
+    secrets_resolver: Arc<dyn FFISecretsResolver>,
 }
 
 impl FFISecretsResolverAdapter {
-    pub fn new(secrets_resolver: Box<dyn FFISecretsResolver>) -> Self {
+    pub fn new(secrets_resolver: Arc<dyn FFISecretsResolver>) -> Self {
         FFISecretsResolverAdapter { secrets_resolver }
     }
 }

@@ -219,8 +219,8 @@ dictionary FromPrior {
 
 
 namespace didcomm {
-  ErrorCode pack_plaintext([ByRef] Message msg, FFIDIDResolver did_resolver, OnPackPlaintextResult cb);
-  ErrorCode pack_signed([ByRef] Message msg, string sign_by, FFIDIDResolver did_resolver, FFISecretsResolver secret_resolver, OnPackSignedResult cb);
-  ErrorCode pack_encrypted([ByRef] Message msg, string to, string? from, string? sign_by, FFIDIDResolver did_resolver, FFISecretsResolver secret_resolver, [ByRef] PackEncryptedOptions options, OnPackEncryptedResult cb);
-  ErrorCode unpack(string msg, FFIDIDResolver did_resolver, FFISecretsResolver secret_resolver, [ByRef] UnpackOptions options, OnUnpackResult cb);
+  ErrorCode pack_plaintext([ByRef] Message msg, [ByRef] FFIDIDResolver did_resolver, OnPackPlaintextResult cb);
+  ErrorCode pack_signed([ByRef] Message msg, string sign_by, [ByRef] FFIDIDResolver did_resolver, [ByRef] FFISecretsResolver secret_resolver, OnPackSignedResult cb);
+  ErrorCode pack_encrypted([ByRef] Message msg, string to, string? from, string? sign_by, [ByRef] FFIDIDResolver did_resolver, FFISecretsResolver secret_resolver, [ByRef] PackEncryptedOptions options, OnPackEncryptedResult cb);
+  ErrorCode unpack(string msg, [ByRef] FFIDIDResolver did_resolver, [ByRef] FFISecretsResolver secret_resolver, [ByRef] UnpackOptions options, OnUnpackResult cb);
 };
